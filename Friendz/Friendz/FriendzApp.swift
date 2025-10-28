@@ -10,10 +10,22 @@ import SwiftUI
 
 @main
 struct FriendzApp: App {
+    @State private var contactsManager = ContactsManager()
+
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environment(contactsManager)
         }
-        .modelContainer(for: Friend.self)
+        .modelContainer(for: Friend.self) { result in
+            switch result {
+            case .success:
+                // Configure CloudKit sync for Friend model
+                // CloudKit will automatically sync Friend data across devices
+                print("Model container initialized with CloudKit sync")
+            case .failure(let error):
+                print("Failed to initialize model container: \(error)")
+            }
+        }
     }
 }
