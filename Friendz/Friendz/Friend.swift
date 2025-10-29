@@ -30,6 +30,7 @@ class Friend {
     var firstName: String
     var lastName: String
     var middleName: String?
+    var organizationName: String?
 
     // Contact details
     var phoneNumbers: [LabeledValue]
@@ -49,6 +50,7 @@ class Friend {
         firstName: String,
         lastName: String,
         middleName: String? = nil,
+        organizationName: String? = nil,
         phoneNumbers: [LabeledValue] = [],
         emailAddresses: [LabeledValue] = [],
         postalAddresses: [LabeledPostalAddress] = [],
@@ -61,6 +63,7 @@ class Friend {
         self.firstName = firstName
         self.lastName = lastName
         self.middleName = middleName
+        self.organizationName = organizationName
         self.phoneNumbers = phoneNumbers
         self.emailAddresses = emailAddresses
         self.postalAddresses = postalAddresses
