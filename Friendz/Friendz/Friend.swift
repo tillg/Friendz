@@ -35,7 +35,7 @@ struct LabeledPostalAddress: Codable, Hashable {
 }
 
 @Model
-class Friend {
+class Friend: Comparable {
     var id: UUID
     var firstName: String
     var lastName: String
@@ -88,20 +88,44 @@ class Friend {
         self.isDeleted = isDeleted
     }
 
+    // MARK: - Computed Properties for Display and Sorting
+
     /// Computed property for sorting: uses "LastName FirstName" for persons, organizationName for companies
+    /// Handles edge cases where organization name or person names may be empty
     var sortValue: String {
-        // If it's a company, use organization name
+        // If it's a company, prefer organization name, then fall back to person names
         if isCompany {
-            return organizationName ?? ""
+            if let orgName = organizationName, !orgName.isEmpty {
+                return orgName
+            }
+            // Fallback: use lastName/firstName if org name is empty
+            if !lastName.isEmpty {
+                return "\(lastName) \(firstName)".trimmingCharacters(in: .whitespaces)
+            }
+            return firstName
         }
         // For persons, use lastName firstName
         else if !lastName.isEmpty {
             return "\(lastName) \(firstName)".trimmingCharacters(in: .whitespaces)
         }
         // Fallback to firstName
-        else {
+        else if !firstName.isEmpty {
             return firstName
         }
+        // Last resort: use organization name if both first and last names are empty
+        else if let orgName = organizationName, !orgName.isEmpty {
+            return orgName
+        }
+        // Ultimate fallback
+        else {
+            return ""
+        }
+    }
+
+    /// Section key for grouping in lists (first letter or "#" for numbers)
+    var sectionKey: String {
+        let firstChar = sortValue.prefix(1).uppercased()
+        return firstChar.first?.isNumber == true ? "#" : firstChar
     }
 
     // MARK: - Geocoding Helper Methods
@@ -123,6 +147,36 @@ class Friend {
     func markNeedsGeocoding(at index: Int) {
         guard index < postalAddresses.count else { return }
         postalAddresses[index].needsGeocoding = true
+    }
+
+    // MARK: - Comparable Conformance
+
+    /// Compare two friends for sorting
+    /// Logic: Letters come before numbers, then use case-insensitive comparison
+    static func < (lhs: Friend, rhs: Friend) -> Bool {
+        let val1 = lhs.sortValue
+        let val2 = rhs.sortValue
+
+        let firstChar1 = val1.first
+        let firstChar2 = val2.first
+
+        let isDigit1 = firstChar1?.isNumber ?? false
+        let isDigit2 = firstChar2?.isNumber ?? false
+
+        // If one starts with digit and other doesn't, digit comes after (letters first)
+        if isDigit1 && !isDigit2 {
+            return false  // lhs (digit) is not less than rhs (letter)
+        } else if !isDigit1 && isDigit2 {
+            return true   // lhs (letter) is less than rhs (digit)
+        }
+
+        // Both same type (both digits or both letters), use normal comparison
+        return val1.localizedCaseInsensitiveCompare(val2) == .orderedAscending
+    }
+
+    /// Equality based on contact identifier
+    static func == (lhs: Friend, rhs: Friend) -> Bool {
+        lhs.contactIdentifier == rhs.contactIdentifier
     }
 
     // MARK: - Sample Data

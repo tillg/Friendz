@@ -19,16 +19,24 @@ struct ContentView: View {
     @State private var showingErrorAlert = false
     @State private var geocodingManager: GeocodingManager?
 
-    // Sort friends by sortValue and group by first letter
+    // Sort friends and group by first letter
+    // Note: Sorting logic is defined in Friend's Comparable conformance
     private var groupedFriends: [(String, [Friend])] {
-        // Sort friends by sortValue
-        let sortedFriends = friends.sorted { $0.sortValue.localizedCaseInsensitiveCompare($1.sortValue) == .orderedAscending }
+        // Sort friends using Friend's Comparable conformance (letters first, then numbers)
+        let sortedFriends = friends.sorted()
 
-        // Group by first letter of sortValue
-        let grouped = Dictionary(grouping: sortedFriends) { friend in
-            String(friend.sortValue.prefix(1).uppercased())
+        // Group by section key (first letter or "#" for numbers)
+        let grouped = Dictionary(grouping: sortedFriends) { $0.sectionKey }
+
+        // Sort sections: letters first (A-Z), then "#" for numbers
+        return grouped.sorted { section1, section2 in
+            if section1.key == "#" {
+                return false  // "#" goes to the end
+            } else if section2.key == "#" {
+                return true   // "#" goes to the end
+            }
+            return section1.key < section2.key
         }
-        return grouped.sorted { $0.key < $1.key }
     }
 
     var body: some View {
@@ -53,7 +61,9 @@ struct ContentView: View {
                     ForEach(groupedFriends, id: \.0) { section in
                         Section {
                             ForEach(section.1) { friend in
-                                FriendListView(friend: friend)
+                                NavigationLink(destination: FriendView(friend: friend)) {
+                                    FriendListView(friend: friend)
+                                }
                             }
                         } header: {
                             Text(section.0)

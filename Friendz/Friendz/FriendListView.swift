@@ -18,25 +18,45 @@ struct FriendListView: View {
 
             // Contact info
             if friend.isCompany {
-                // Company contact: organization name only, bold
-                Text(friend.organizationName ?? "")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(.primary)
+                // Company contact: organization name, or fallback to person name if org is empty
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(displayName)
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(.primary)
+
+                    if let subtitle = companySubtitle {
+                        Text(subtitle)
+                            .font(.system(size: 15))
+                            .foregroundStyle(.secondary)
+                    }
+                }
             } else {
                 // Person contact: name with optional organization subtitle
                 VStack(alignment: .leading, spacing: 2) {
-                    // Name with bold last name
-                    HStack(spacing: 4) {
-                        Text(friend.firstName)
-                            .font(.system(size: 17))
-                        if let middleName = friend.middleName, !middleName.isEmpty {
-                            Text(middleName)
-                                .font(.system(size: 17))
-                        }
-                        Text(friend.lastName)
+                    // If no personal names, show organization name as primary
+                    if friend.firstName.isEmpty && friend.lastName.isEmpty,
+                       let orgName = friend.organizationName, !orgName.isEmpty {
+                        Text(orgName)
                             .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(.primary)
+                    } else {
+                        // Name with bold last name
+                        HStack(spacing: 4) {
+                            if !friend.firstName.isEmpty {
+                                Text(friend.firstName)
+                                    .font(.system(size: 17))
+                            }
+                            if let middleName = friend.middleName, !middleName.isEmpty {
+                                Text(middleName)
+                                    .font(.system(size: 17))
+                            }
+                            if !friend.lastName.isEmpty {
+                                Text(friend.lastName)
+                                    .font(.system(size: 17, weight: .semibold))
+                            }
+                        }
+                        .foregroundStyle(.primary)
                     }
-                    .foregroundStyle(.primary)
 
                     if let subtitle = subtitle {
                         Text(subtitle)
@@ -94,16 +114,78 @@ struct FriendListView: View {
 
     // MARK: - Computed Properties
 
+    /// Display name for the contact - intelligently handles edge cases
+    private var displayName: String {
+        // For companies, prefer organizationName, then fall back to person names
+        if friend.isCompany {
+            if let orgName = friend.organizationName, !orgName.isEmpty {
+                return orgName
+            }
+            // Fallback: use person name fields if org name is empty
+            let nameParts = [friend.firstName, friend.middleName, friend.lastName]
+                .compactMap { $0 }
+                .filter { !$0.isEmpty }
+            return nameParts.joined(separator: " ")
+        }
+
+        // For persons, construct full name
+        let nameParts = [friend.firstName, friend.middleName, friend.lastName]
+            .compactMap { $0 }
+            .filter { !$0.isEmpty }
+        let fullName = nameParts.joined(separator: " ")
+
+        // If no personal names, fall back to organization name
+        if fullName.isEmpty, let orgName = friend.organizationName, !orgName.isEmpty {
+            return orgName
+        }
+
+        return fullName
+    }
+
     private var initials: String {
+        // Try to get initials from firstName and lastName
         let firstInitial = friend.firstName.prefix(1)
         let lastInitial = friend.lastName.prefix(1)
-        return "\(firstInitial)\(lastInitial)".uppercased()
+        let nameInitials = "\(firstInitial)\(lastInitial)".uppercased()
+
+        // If we have at least one initial, use it
+        if !nameInitials.isEmpty {
+            return nameInitials
+        }
+
+        // Fallback: try to get initials from organization name
+        if let orgName = friend.organizationName, !orgName.isEmpty {
+            let words = orgName.split(separator: " ")
+            if words.count >= 2 {
+                return "\(words[0].prefix(1))\(words[1].prefix(1))".uppercased()
+            } else {
+                return String(orgName.prefix(2)).uppercased()
+            }
+        }
+
+        return "?"
     }
 
     private var subtitle: String? {
-        // Only show organization name, never phone or email
-        if let organization = friend.organizationName, !organization.isEmpty {
+        // For person contacts: show organization name if different from display name
+        if !friend.isCompany,
+           let organization = friend.organizationName, !organization.isEmpty,
+           !friend.firstName.isEmpty || !friend.lastName.isEmpty {
             return organization
+        }
+        return nil
+    }
+
+    private var companySubtitle: String? {
+        // For company contacts: show person name if org name was used as primary
+        if friend.isCompany,
+           let orgName = friend.organizationName, !orgName.isEmpty,
+           (!friend.firstName.isEmpty || !friend.lastName.isEmpty) {
+            let nameParts = [friend.firstName, friend.middleName, friend.lastName]
+                .compactMap { $0 }
+                .filter { !$0.isEmpty }
+            let fullName = nameParts.joined(separator: " ")
+            return fullName.isEmpty ? nil : fullName
         }
         return nil
     }
