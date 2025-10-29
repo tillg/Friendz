@@ -214,10 +214,11 @@ class ContactsManager {
             )
         }
 
-        // Map postal addresses
+        // Map postal addresses - PRESERVE geocoding data if address hasn't changed
+        let existingAddresses = friend.postalAddresses
         friend.postalAddresses = contact.postalAddresses.map { address in
             let postalAddress = address.value
-            return LabeledPostalAddress(
+            let newAddress = LabeledPostalAddress(
                 label: CNLabeledValue<CNPostalAddress>.localizedString(forLabel: address.label ?? ""),
                 street: postalAddress.street,
                 city: postalAddress.city,
@@ -225,6 +226,25 @@ class ContactsManager {
                 postalCode: postalAddress.postalCode,
                 country: postalAddress.country
             )
+
+            // Try to find matching existing address to preserve geocoding data
+            if let existingMatch = existingAddresses.first(where: { existing in
+                existing.street == newAddress.street &&
+                existing.city == newAddress.city &&
+                existing.state == newAddress.state &&
+                existing.postalCode == newAddress.postalCode &&
+                existing.country == newAddress.country
+            }) {
+                // Address unchanged - preserve geocoding data
+                var preserved = newAddress
+                preserved.latitude = existingMatch.latitude
+                preserved.longitude = existingMatch.longitude
+                preserved.needsGeocoding = existingMatch.needsGeocoding
+                return preserved
+            }
+
+            // New or changed address - return with default geocoding state
+            return newAddress
         }
 
         // Update photo data

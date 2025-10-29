@@ -22,6 +22,16 @@ struct LabeledPostalAddress: Codable, Hashable {
     let state: String
     let postalCode: String
     let country: String
+
+    // Geocoding fields
+    var latitude: Double?
+    var longitude: Double?
+    var needsGeocoding: Bool = true
+
+    /// Computed property for convenience
+    var hasValidCoordinates: Bool {
+        latitude != nil && longitude != nil
+    }
 }
 
 @Model
@@ -92,6 +102,27 @@ class Friend {
         else {
             return firstName
         }
+    }
+
+    // MARK: - Geocoding Helper Methods
+
+    /// Returns addresses that need geocoding
+    func addressesNeedingGeocoding() -> [(index: Int, address: LabeledPostalAddress)] {
+        postalAddresses.enumerated().filter { $0.element.needsGeocoding }.map { ($0.offset, $0.element) }
+    }
+
+    /// Updates coordinates for an address and marks as geocoded
+    func updateCoordinates(at index: Int, latitude: Double, longitude: Double) {
+        guard index < postalAddresses.count else { return }
+        postalAddresses[index].latitude = latitude
+        postalAddresses[index].longitude = longitude
+        postalAddresses[index].needsGeocoding = false
+    }
+
+    /// Marks an address as needing geocoding (e.g., after modification or failure)
+    func markNeedsGeocoding(at index: Int) {
+        guard index < postalAddresses.count else { return }
+        postalAddresses[index].needsGeocoding = true
     }
 
     // MARK: - Sample Data

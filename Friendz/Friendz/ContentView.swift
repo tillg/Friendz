@@ -17,6 +17,7 @@ struct ContentView: View {
     var friends: [Friend]
 
     @State private var showingErrorAlert = false
+    @State private var geocodingManager: GeocodingManager?
 
     // Sort friends by sortValue and group by first letter
     private var groupedFriends: [(String, [Friend])] {
@@ -66,8 +67,16 @@ struct ContentView: View {
             }
             .navigationTitle("Contacts")
             .task {
+                // Initialize geocoding manager if not already created
+                if geocodingManager == nil {
+                    geocodingManager = GeocodingManager(modelContext: modelContext)
+                }
+
                 // Sync contacts when view appears
                 await contactsManager.syncContacts(modelContext: modelContext)
+
+                // After syncing, scan for addresses that need geocoding
+                geocodingManager?.scanAndEnqueueFriends()
             }
             .alert("Sync Error", isPresented: $showingErrorAlert) {
                 Button("OK", role: .cancel) { }
