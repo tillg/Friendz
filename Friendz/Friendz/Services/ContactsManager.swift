@@ -113,6 +113,7 @@ class ContactsManager {
             CNContactFamilyNameKey as CNKeyDescriptor,
             CNContactMiddleNameKey as CNKeyDescriptor,
             CNContactOrganizationNameKey as CNKeyDescriptor,
+            CNContactTypeKey as CNKeyDescriptor,
             CNContactPhoneNumbersKey as CNKeyDescriptor,
             CNContactEmailAddressesKey as CNKeyDescriptor,
             CNContactPostalAddressesKey as CNKeyDescriptor,
@@ -178,6 +179,7 @@ class ContactsManager {
             lastName: contact.familyName,
             middleName: contact.middleName.isEmpty ? nil : contact.middleName,
             organizationName: contact.organizationName.isEmpty ? nil : contact.organizationName,
+            isCompany: contact.contactType == .organization,
             phoneNumbers: phoneNumbers,
             emailAddresses: emailAddresses,
             postalAddresses: postalAddresses,
@@ -194,6 +196,7 @@ class ContactsManager {
         friend.lastName = contact.familyName
         friend.middleName = contact.middleName.isEmpty ? nil : contact.middleName
         friend.organizationName = contact.organizationName.isEmpty ? nil : contact.organizationName
+        friend.isCompany = contact.contactType == .organization
 
         // Map phone numbers
         friend.phoneNumbers = contact.phoneNumbers.map { phoneNumber in
