@@ -19,6 +19,115 @@ struct ContentView: View {
     @State private var showingErrorAlert = false
     @State private var geocodingManager: GeocodingManager?
 
+    var body: some View {
+        NavigationSplitView {
+            // Sidebar: Friends list (left on iPad, navigable on iPhone)
+            friendsListView
+        } detail: {
+            // Detail: Map view (right on iPad, destination on iPhone)
+            MapView()
+        }
+        .task {
+            // Initialize geocoding manager if not already created
+            if geocodingManager == nil {
+                geocodingManager = GeocodingManager(modelContext: modelContext)
+            }
+
+            // Sync contacts when view appears
+            await contactsManager.syncContacts(modelContext: modelContext)
+
+            // After syncing, scan for addresses that need geocoding
+            geocodingManager?.scanAndEnqueueFriends()
+        }
+        .alert("Sync Error", isPresented: $showingErrorAlert) {
+            Button("OK", role: .cancel) { }
+            if contactsManager.errorMessage?.contains("denied") == true {
+                Button("Open Settings") {
+                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                        UIApplication.shared.open(url)
+                    }
+                }
+            }
+        } message: {
+            if let errorMessage = contactsManager.errorMessage {
+                Text(errorMessage)
+            }
+        }
+        .onChange(of: contactsManager.errorMessage) { _, newValue in
+            showingErrorAlert = newValue != nil
+        }
+    }
+
+    // MARK: - Friends List View
+
+    private var friendsListView: some View {
+        VStack(spacing: 0) {
+            // Progress bar (iMessage-style)
+            if contactsManager.isLoading {
+                VStack(spacing: 0) {
+                    GeometryReader { geometry in
+                        ZStack(alignment: .leading) {
+                            // Background bar
+                            Rectangle()
+                                .fill(Color.gray.opacity(0.2))
+                                .frame(height: 3)
+
+                            // Progress fill
+                            Rectangle()
+                                .fill(Color.blue)
+                                .frame(width: geometry.size.width * contactsManager.syncProgress, height: 3)
+                                .animation(.linear(duration: 0.2), value: contactsManager.syncProgress)
+                        }
+                    }
+                    .frame(height: 3)
+                }
+            }
+
+            // Friends list with sections
+            List {
+                ForEach(groupedFriends, id: \.0) { section in
+                    Section {
+                        ForEach(section.1) { friend in
+                            NavigationLink(destination: FriendView(friend: friend)) {
+                                FriendListView(friend: friend)
+                            }
+                        }
+                    } header: {
+                        Text(section.0)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .listStyle(.plain)
+            .scrollIndicators(.hidden)
+        }
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            // Custom navigation title with image
+            ToolbarItem(placement: .principal) {
+                HStack(spacing: 8) {
+                    Image("friendz")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(height: 28)
+                    Text("friendz")
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                }
+            }
+
+            // Map button
+            ToolbarItem(placement: .primaryAction) {
+                NavigationLink(destination: MapView()) {
+                    Label("Map", systemImage: "map")
+                }
+            }
+        }
+    }
+
+    // MARK: - Computed Properties
+
     // Sort friends and group by first letter
     // Note: Sorting logic is defined in Friend's Comparable conformance
     private var groupedFriends: [(String, [Friend])] {
@@ -36,75 +145,6 @@ struct ContentView: View {
                 return true   // "#" goes to the end
             }
             return section1.key < section2.key
-        }
-    }
-
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                // Loading indicator
-                if contactsManager.isLoading {
-                    HStack {
-                        ProgressView()
-                            .padding(.trailing, 8)
-                        Text("Syncing contacts...")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding(.vertical, 8)
-                    .frame(maxWidth: .infinity)
-                    .background(Color(uiColor: .systemBackground))
-                }
-
-                // Friends list with sections
-                List {
-                    ForEach(groupedFriends, id: \.0) { section in
-                        Section {
-                            ForEach(section.1) { friend in
-                                NavigationLink(destination: FriendView(friend: friend)) {
-                                    FriendListView(friend: friend)
-                                }
-                            }
-                        } header: {
-                            Text(section.0)
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                }
-                .listStyle(.plain)
-                .scrollIndicators(.hidden)
-            }
-            .navigationTitle("Contacts")
-            .task {
-                // Initialize geocoding manager if not already created
-                if geocodingManager == nil {
-                    geocodingManager = GeocodingManager(modelContext: modelContext)
-                }
-
-                // Sync contacts when view appears
-                await contactsManager.syncContacts(modelContext: modelContext)
-
-                // After syncing, scan for addresses that need geocoding
-                geocodingManager?.scanAndEnqueueFriends()
-            }
-            .alert("Sync Error", isPresented: $showingErrorAlert) {
-                Button("OK", role: .cancel) { }
-                if contactsManager.errorMessage?.contains("denied") == true {
-                    Button("Open Settings") {
-                        if let url = URL(string: UIApplication.openSettingsURLString) {
-                            UIApplication.shared.open(url)
-                        }
-                    }
-                }
-            } message: {
-                if let errorMessage = contactsManager.errorMessage {
-                    Text(errorMessage)
-                }
-            }
-            .onChange(of: contactsManager.errorMessage) { _, newValue in
-                showingErrorAlert = newValue != nil
-            }
         }
     }
 }

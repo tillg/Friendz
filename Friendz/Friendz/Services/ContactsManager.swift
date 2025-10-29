@@ -26,6 +26,7 @@ class ContactsManager {
     var isLoading: Bool = false
     var syncStatus: SyncStatus = .idle
     var errorMessage: String?
+    var syncProgress: Double = 0.0  // 0.0 to 1.0
 
     private let contactStore = CNContactStore()
 
@@ -43,25 +44,31 @@ class ContactsManager {
         isLoading = true
         syncStatus = .syncing
         errorMessage = nil
+        syncProgress = 0.0
 
         do {
-            // Request permission first
+            // Step 1: Request permission (10%)
+            syncProgress = 0.1
             let hasAccess = try await requestAccess()
             guard hasAccess else {
                 errorMessage = "Contacts access denied. Please enable in Settings."
                 syncStatus = .error("Access denied")
                 isLoading = false
+                syncProgress = 0.0
                 return
             }
 
-            // Fetch all contacts from iOS Contacts
+            // Step 2: Fetch all contacts from iOS Contacts (30%)
+            syncProgress = 0.3
             let cnContacts = try await fetchAllContacts()
 
-            // Fetch existing friends from SwiftData
+            // Step 3: Fetch existing friends from SwiftData (40%)
+            syncProgress = 0.4
             let descriptor = FetchDescriptor<Friend>()
             let existingFriends = try modelContext.fetch(descriptor)
 
-            // Create a dictionary of existing friends by contactIdentifier
+            // Step 4: Create a dictionary of existing friends by contactIdentifier (50%)
+            syncProgress = 0.5
             var friendsByIdentifier: [String: Friend] = [:]
             for friend in existingFriends {
                 friendsByIdentifier[friend.contactIdentifier] = friend
@@ -70,8 +77,9 @@ class ContactsManager {
             // Create a set of current contact identifiers for deletion detection
             let currentContactIdentifiers = Set(cnContacts.map { $0.identifier })
 
-            // Process each contact
-            for cnContact in cnContacts {
+            // Step 5: Process each contact (50% to 80%)
+            let totalContacts = cnContacts.count
+            for (index, cnContact) in cnContacts.enumerated() {
                 if let existingFriend = friendsByIdentifier[cnContact.identifier] {
                     // Contact exists - check if it needs updating
                     if detectChanges(existing: existingFriend, new: cnContact) {
@@ -82,22 +90,32 @@ class ContactsManager {
                     let newFriend = mapContactToFriend(cnContact)
                     modelContext.insert(newFriend)
                 }
+
+                // Update progress incrementally (50% to 80%)
+                if totalContacts > 0 {
+                    syncProgress = 0.5 + (Double(index + 1) / Double(totalContacts)) * 0.3
+                }
             }
 
-            // Mark deleted contacts (contacts that are not in current iOS Contacts)
+            // Step 6: Mark deleted contacts (90%)
+            syncProgress = 0.9
             for friend in existingFriends where !friend.isDeleted {
                 if !currentContactIdentifiers.contains(friend.contactIdentifier) {
                     friend.isDeleted = true
                 }
             }
 
-            // Save changes
+            // Step 7: Save changes (95%)
+            syncProgress = 0.95
             try modelContext.save()
 
+            // Complete (100%)
+            syncProgress = 1.0
             syncStatus = .completed
         } catch {
             errorMessage = "Failed to sync contacts: \(error.localizedDescription)"
             syncStatus = .error(error.localizedDescription)
+            syncProgress = 0.0
         }
 
         isLoading = false
