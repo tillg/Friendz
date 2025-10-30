@@ -7,9 +7,10 @@
 
 import Foundation
 import CoreLocation
+import MapKit
 
-/// Represents a friend's location on the map
-struct FriendAnnotation: Identifiable, Hashable, Equatable {
+/// Represents a friend's location on the map with clustering support
+class FriendAnnotation: NSObject, MKAnnotation, Identifiable {
     let id: String  // friendId + addressIndex
     let friendId: UUID
     let coordinate: CLLocationCoordinate2D
@@ -54,12 +55,17 @@ struct FriendAnnotation: Identifiable, Hashable, Equatable {
         }
     }
 
-    /// Title shown in annotation callout
-    var title: String {
+    /// Title shown in annotation callout (MKAnnotation requirement)
+    var title: String? {
         if addressLabel.isEmpty {
             return displayName
         }
         return "\(displayName) - \(addressLabel)"
+    }
+
+    /// Subtitle shown in annotation callout (MKAnnotation requirement)
+    var subtitle: String? {
+        return addressLabel.isEmpty ? nil : addressLabel
     }
 
     /// Initials for marker (fallback if no name)
@@ -88,24 +94,14 @@ struct FriendAnnotation: Identifiable, Hashable, Equatable {
 
     // MARK: - Hashable & Equatable
 
-    static func == (lhs: FriendAnnotation, rhs: FriendAnnotation) -> Bool {
-        lhs.id == rhs.id
+    override func isEqual(_ object: Any?) -> Bool {
+        guard let other = object as? FriendAnnotation else { return false }
+        return id == other.id
     }
 
-    func hash(into hasher: inout Hasher) {
+    override var hash: Int {
+        var hasher = Hasher()
         hasher.combine(id)
-    }
-}
-
-// MARK: - CLLocationCoordinate2D Extensions for Hashable
-
-extension CLLocationCoordinate2D: @retroactive Hashable {
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(latitude)
-        hasher.combine(longitude)
-    }
-
-    public static func == (lhs: CLLocationCoordinate2D, rhs: CLLocationCoordinate2D) -> Bool {
-        lhs.latitude == rhs.latitude && lhs.longitude == rhs.longitude
+        return hasher.finalize()
     }
 }
