@@ -14,6 +14,7 @@ struct ClusteredMapView: UIViewRepresentable {
     let annotations: [FriendAnnotation]
     let userLocation: CLLocation?
     @Binding var selectedFriendId: UUID?
+    @Binding var centerOnUser: Bool
 
     func makeUIView(context: Context) -> MKMapView {
         let mapView = MKMapView()
@@ -44,6 +45,14 @@ struct ClusteredMapView: UIViewRepresentable {
             updateCameraPosition(mapView)
             context.coordinator.needsCameraUpdate = false
         }
+
+        // Center on user location when requested
+        if centerOnUser {
+            centerOnUserLocation(mapView)
+            DispatchQueue.main.async {
+                self.centerOnUser = false
+            }
+        }
     }
 
     func makeCoordinator() -> Coordinator {
@@ -69,6 +78,17 @@ struct ClusteredMapView: UIViewRepresentable {
         if !toAdd.isEmpty {
             mapView.addAnnotations(toAdd)
         }
+    }
+
+    private func centerOnUserLocation(_ mapView: MKMapView) {
+        guard let userLocation = userLocation else { return }
+
+        let region = MKCoordinateRegion(
+            center: userLocation.coordinate,
+            latitudinalMeters: 5000,
+            longitudinalMeters: 5000
+        )
+        mapView.setRegion(region, animated: true)
     }
 
     private func updateCameraPosition(_ mapView: MKMapView) {

@@ -21,6 +21,7 @@ struct MapView: View {
 
     @StateObject private var locationManager = LocationManager()
     @State private var selectedFriendId: UUID?
+    @State private var centerOnUser = false
 
     var body: some View {
         ZStack {
@@ -28,7 +29,8 @@ struct MapView: View {
             ClusteredMapView(
                 annotations: friendAnnotations,
                 userLocation: locationManager.userLocation,
-                selectedFriendId: $selectedFriendId
+                selectedFriendId: $selectedFriendId,
+                centerOnUser: $centerOnUser
             )
             .edgesIgnoringSafeArea(.all)
 
@@ -48,6 +50,27 @@ struct MapView: View {
                 .padding()
                 .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
                 .padding()
+            }
+
+            // Location button overlay
+            VStack {
+                Spacer()
+                HStack {
+                    Spacer()
+                    Button {
+                        centerOnUser = true
+                    } label: {
+                        Image(systemName: "location.fill")
+                            .font(.system(size: 20))
+                            .foregroundColor(.white)
+                            .frame(width: 44, height: 44)
+                            .background(Color.blue)
+                            .clipShape(Circle())
+                            .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
+                    }
+                    .padding(.trailing, 16)
+                    .padding(.bottom, 16)
+                }
             }
 
             // Location permission message
