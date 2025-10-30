@@ -70,9 +70,24 @@ struct FriendListView: View {
 
             // Geocoding status indicator
             if let geoStatus = geocodingStatus {
-                geoStatus.icon
-                    .font(.system(size: 16))
-                    .foregroundStyle(geoStatus.color)
+                ZStack(alignment: .bottomTrailing) {
+                    // Base location icon (always gray)
+                    Image(systemName: "location.fill")
+                        .font(.system(size: 16))
+                        .foregroundStyle(.gray)
+
+                    // Badge overlay based on status
+                    Image(systemName: geoStatus.badgeIcon)
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 14, height: 14)
+                        .background(
+                            Circle()
+                                .fill(geoStatus.badgeColor)
+                        )
+                        .offset(x: 5, y: 5)
+                }
+                .frame(width: 16, height: 16)
             }
         }
         .contentShape(Rectangle())
@@ -219,25 +234,25 @@ private enum GeocodingDisplayStatus {
     case partial    // Some addresses geocoded, some not
     case complete   // All addresses geocoded
 
-    var icon: Image {
+    var badgeIcon: String {
         switch self {
         case .pending:
-            return Image(systemName: "location.slash.fill")
+            return "questionmark"
         case .partial:
-            return Image(systemName: "location.fill.viewfinder")
+            return "exclamationmark"
         case .complete:
-            return Image(systemName: "location.fill")
+            return "checkmark"
         }
     }
 
-    var color: Color {
+    var badgeColor: Color {
         switch self {
         case .pending:
-            return .secondary
+            return .orange
         case .partial:
             return .orange
         case .complete:
-            return .blue
+            return .green
         }
     }
 }

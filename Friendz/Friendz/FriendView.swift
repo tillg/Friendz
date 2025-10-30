@@ -195,20 +195,7 @@ struct FriendView: View {
 
                 HStack(alignment: .top, spacing: 16) {
                     // Icon with geocoding status
-                    ZStack {
-                        Image(systemName: "location.fill")
-                            .font(.system(size: 18))
-                            .foregroundStyle(address.hasValidCoordinates ? .blue : .secondary)
-                            .frame(width: 20)
-
-                        if !address.hasValidCoordinates {
-                            Image(systemName: "slash.circle.fill")
-                                .font(.system(size: 10))
-                                .foregroundStyle(.white)
-                                .background(Circle().fill(Color(uiColor: .systemBackground)))
-                                .offset(x: 8, y: -8)
-                        }
-                    }
+                    GeocodingStatusIcon(address: address)
 
                     // Address content
                     VStack(alignment: .leading, spacing: 2) {

@@ -11,6 +11,7 @@ import SwiftUI
 struct ContentView: View {
     @Environment(\.modelContext) var modelContext
     @Environment(ContactsManager.self) var contactsManager
+    @Environment(ActivityStatusManager.self) var activityStatusManager
 
     // Query friends, filtering out deleted ones (no sort in query, we'll sort manually)
     @Query(filter: #Predicate<Friend> { !$0.isDeleted })
@@ -30,7 +31,9 @@ struct ContentView: View {
         .task {
             // Initialize geocoding manager if not already created
             if geocodingManager == nil {
-                geocodingManager = GeocodingManager(modelContext: modelContext)
+                let manager = GeocodingManager(modelContext: modelContext)
+                manager.activityStatusManager = activityStatusManager
+                geocodingManager = manager
             }
 
             // Sync contacts when view appears
@@ -62,26 +65,8 @@ struct ContentView: View {
 
     private var friendsListView: some View {
         VStack(spacing: 0) {
-            // Progress bar (iMessage-style)
-            if contactsManager.isLoading {
-                VStack(spacing: 0) {
-                    GeometryReader { geometry in
-                        ZStack(alignment: .leading) {
-                            // Background bar
-                            Rectangle()
-                                .fill(Color.gray.opacity(0.2))
-                                .frame(height: 3)
-
-                            // Progress fill
-                            Rectangle()
-                                .fill(Color.blue)
-                                .frame(width: geometry.size.width * contactsManager.syncProgress, height: 3)
-                                .animation(.linear(duration: 0.2), value: contactsManager.syncProgress)
-                        }
-                    }
-                    .frame(height: 3)
-                }
-            }
+            // Activity Status Bar
+            ActivityStatusBar()
 
             // Friends list with sections
             List {

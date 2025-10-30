@@ -30,6 +30,9 @@ class ContactsManager {
 
     private let contactStore = CNContactStore()
 
+    /// Optional reference to ActivityStatusManager for UI updates
+    weak var activityStatusManager: ActivityStatusManager?
+
     // MARK: - Permission Handling
 
     /// Request access to iOS Contacts
@@ -46,6 +49,9 @@ class ContactsManager {
         errorMessage = nil
         syncProgress = 0.0
 
+        // Notify status manager that syncing started
+        activityStatusManager?.updateContactSync(.syncing(progress: nil))
+
         do {
             // Step 1: Request permission (10%)
             syncProgress = 0.1
@@ -55,6 +61,7 @@ class ContactsManager {
                 syncStatus = .error("Access denied")
                 isLoading = false
                 syncProgress = 0.0
+                activityStatusManager?.updateContactSync(.error(message: "Contact access denied"))
                 return
             }
 
@@ -94,6 +101,12 @@ class ContactsManager {
                 // Update progress incrementally (50% to 80%)
                 if totalContacts > 0 {
                     syncProgress = 0.5 + (Double(index + 1) / Double(totalContacts)) * 0.3
+
+                    // Update activity status every 10 contacts or on last contact
+                    if (index + 1) % 10 == 0 || index == totalContacts - 1 {
+                        let progress = SyncProgress(current: index + 1, total: totalContacts)
+                        activityStatusManager?.updateContactSync(.syncing(progress: progress))
+                    }
                 }
             }
 
@@ -112,10 +125,16 @@ class ContactsManager {
             // Complete (100%)
             syncProgress = 1.0
             syncStatus = .completed
+
+            // Notify success
+            activityStatusManager?.updateContactSync(.success(count: cnContacts.count))
         } catch {
             errorMessage = "Failed to sync contacts: \(error.localizedDescription)"
             syncStatus = .error(error.localizedDescription)
             syncProgress = 0.0
+
+            // Notify error
+            activityStatusManager?.updateContactSync(.error(message: error.localizedDescription))
         }
 
         isLoading = false

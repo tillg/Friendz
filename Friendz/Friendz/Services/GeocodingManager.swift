@@ -32,6 +32,9 @@ class GeocodingManager {
     private let modelContext: ModelContext
     private var processingTask: Task<Void, Never>?
 
+    /// Optional reference to ActivityStatusManager for UI updates
+    weak var activityStatusManager: ActivityStatusManager?
+
     /// Queue of friends needing geocoding
     private var queue: [(friend: Friend, addressIndex: Int)] = [] {
         didSet {
@@ -113,6 +116,11 @@ class GeocodingManager {
         let totalAddresses = queue.count
         print("📍 Starting geocoding queue: \(totalAddresses) address(es) to process")
 
+        // Notify activity manager that geocoding started
+        if totalAddresses > 0 {
+            activityStatusManager?.updateGeocoding(.locating(current: 0, total: totalAddresses))
+        }
+
         while !queue.isEmpty {
             guard !Task.isCancelled else {
                 isProcessing = false
@@ -164,6 +172,10 @@ class GeocodingManager {
                 print("   Coordinates: \(coordinates.latitude), \(coordinates.longitude)")
                 print("   Queue: \(queue.count) remaining | Success: \(successCount) | Failed: \(failedCount)")
 
+                // Update activity status
+                let processed = totalAddresses - queue.count
+                activityStatusManager?.updateGeocoding(.locating(current: processed, total: totalAddresses))
+
                 // Rate limiting: wait before next request
                 try? await Task.sleep(for: requestDelay)
 
@@ -180,6 +192,10 @@ class GeocodingManager {
 
                 // Keep needsGeocoding = true so it can be retried later
 
+                // Update activity status
+                let processed = totalAddresses - queue.count
+                activityStatusManager?.updateGeocoding(.locating(current: processed, total: totalAddresses))
+
                 // Longer delay after failure to avoid hammering the service
                 try? await Task.sleep(for: .seconds(2))
             }
@@ -190,6 +206,17 @@ class GeocodingManager {
         print("   ✅ Successful: \(successCount)")
         print("   ❌ Failed: \(failedCount)")
         print("   📊 Total: \(successCount + failedCount)")
+
+        // Notify completion
+        if totalAddresses > 0 {
+            if failedCount == 0 {
+                activityStatusManager?.updateGeocoding(.success(found: successCount, failed: 0))
+            } else if successCount > 0 {
+                activityStatusManager?.updateGeocoding(.success(found: successCount, failed: failedCount))
+            } else {
+                activityStatusManager?.updateGeocoding(.error(message: "Unable to locate addresses"))
+            }
+        }
     }
 
     /// Decodes CLError codes into human-readable messages
