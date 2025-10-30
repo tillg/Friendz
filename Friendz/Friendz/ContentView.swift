@@ -87,21 +87,11 @@ struct ContentView: View {
             .listStyle(.plain)
             .scrollIndicators(.hidden)
         }
-        .navigationBarTitleDisplayMode(.inline)
+        .safeAreaInset(edge: .top, spacing: 0) {
+            FriendzHeaderView()
+        }
+        .navigationTitle("")
         .toolbar {
-            // Custom navigation title with image
-            ToolbarItem(placement: .principal) {
-                HStack(spacing: 8) {
-                    Image("friendz")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(height: 28)
-                    Text("friendz")
-                        .font(.headline)
-                        .fontWeight(.semibold)
-                }
-            }
-
             // Map button
             ToolbarItem(placement: .primaryAction) {
                 NavigationLink(destination: MapView()) {

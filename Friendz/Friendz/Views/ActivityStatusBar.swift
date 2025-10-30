@@ -143,7 +143,7 @@ private struct GeocodingStatusView: View {
     private var statusText: String {
         switch status {
         case .locating(let current, let total):
-            return "Locating addresses... \(current)/\(total)"
+            return "Locating... \(current)/\(total)"
         case .success(let found, let failed):
             if failed == 0 {
                 return "✓ \(found) locations found"

@@ -55,7 +55,7 @@ struct GeocodingStatusIcon: View {
         case .pending:
             return .orange
         case .success:
-            return .green
+            return Color.friendzGreen
         case .failed:
             return .red
         }

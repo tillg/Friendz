@@ -252,7 +252,7 @@ private enum GeocodingDisplayStatus {
         case .partial:
             return .orange
         case .complete:
-            return .green
+            return Color.friendzGreen
         }
     }
 }
