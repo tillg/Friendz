@@ -32,6 +32,54 @@ struct LabeledPostalAddress: Codable, Hashable {
     var hasValidCoordinates: Bool {
         latitude != nil && longitude != nil
     }
+
+    /// Creates a new address, optionally preserving geocoding data from an existing address
+    /// if the address fields haven't changed
+    static func create(
+        label: String,
+        street: String,
+        city: String,
+        state: String,
+        postalCode: String,
+        country: String,
+        preservingGeocodingFrom existing: LabeledPostalAddress? = nil
+    ) -> LabeledPostalAddress {
+        // Create new address with provided values
+        var newAddress = LabeledPostalAddress(
+            label: label,
+            street: street,
+            city: city,
+            state: state,
+            postalCode: postalCode,
+            country: country
+        )
+
+        // Check if we should preserve geocoding data
+        if let existing = existing,
+           existing.street == street,
+           existing.city == city,
+           existing.state == state,
+           existing.postalCode == postalCode,
+           existing.country == country {
+            // Address unchanged - preserve geocoding metadata
+            newAddress.latitude = existing.latitude
+            newAddress.longitude = existing.longitude
+            newAddress.needsGeocoding = existing.needsGeocoding
+
+            // Debug logging
+            if let lat = existing.latitude, let lon = existing.longitude {
+                print("✅ PRESERVED geocoding: \(street), \(city) → (\(lat), \(lon)), needsGeocoding=\(existing.needsGeocoding)")
+            }
+        } else if let existing = existing {
+            // Debug: address changed
+            print("❌ ADDRESS CHANGED - not preserving:")
+            print("   Old: \(existing.street), \(existing.city), \(existing.state), \(existing.postalCode), \(existing.country)")
+            print("   New: \(street), \(city), \(state), \(postalCode), \(country)")
+        }
+        // Otherwise, needsGeocoding stays true (default)
+
+        return newAddress
+    }
 }
 
 @Model

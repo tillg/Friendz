@@ -102,7 +102,6 @@ class ActivityStatusManager {
     /// Update geocoding status
     func updateGeocoding(_ status: GeocodingStatus) {
         geocodingStatus = status
-        geocodingDismissed = false
 
         // Auto-dismiss success states after delay
         if status.isSuccess {

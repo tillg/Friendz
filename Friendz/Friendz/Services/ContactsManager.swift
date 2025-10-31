@@ -253,35 +253,37 @@ class ContactsManager {
 
         // Map postal addresses - PRESERVE geocoding data if address hasn't changed
         let existingAddresses = friend.postalAddresses
+
+        // Debug: log existing addresses
+        if !existingAddresses.isEmpty {
+            print("🔍 Friend '\(friend.firstName) \(friend.lastName)' has \(existingAddresses.count) existing address(es)")
+            for (idx, addr) in existingAddresses.enumerated() {
+                print("   [\(idx)] \(addr.street), \(addr.city) - lat:\(addr.latitude?.description ?? "nil"), lon:\(addr.longitude?.description ?? "nil"), needsGeocoding:\(addr.needsGeocoding)")
+            }
+        }
+
         friend.postalAddresses = contact.postalAddresses.map { address in
             let postalAddress = address.value
-            let newAddress = LabeledPostalAddress(
+
+            // Find matching existing address (if any) to preserve geocoding data
+            let existingMatch = existingAddresses.first(where: { existing in
+                existing.street == postalAddress.street &&
+                existing.city == postalAddress.city &&
+                existing.state == postalAddress.state &&
+                existing.postalCode == postalAddress.postalCode &&
+                existing.country == postalAddress.country
+            })
+
+            // Use factory method to create address, automatically preserving geocoding if unchanged
+            return LabeledPostalAddress.create(
                 label: CNLabeledValue<CNPostalAddress>.localizedString(forLabel: address.label ?? ""),
                 street: postalAddress.street,
                 city: postalAddress.city,
                 state: postalAddress.state,
                 postalCode: postalAddress.postalCode,
-                country: postalAddress.country
+                country: postalAddress.country,
+                preservingGeocodingFrom: existingMatch
             )
-
-            // Try to find matching existing address to preserve geocoding data
-            if let existingMatch = existingAddresses.first(where: { existing in
-                existing.street == newAddress.street &&
-                existing.city == newAddress.city &&
-                existing.state == newAddress.state &&
-                existing.postalCode == newAddress.postalCode &&
-                existing.country == newAddress.country
-            }) {
-                // Address unchanged - preserve geocoding data
-                var preserved = newAddress
-                preserved.latitude = existingMatch.latitude
-                preserved.longitude = existingMatch.longitude
-                preserved.needsGeocoding = existingMatch.needsGeocoding
-                return preserved
-            }
-
-            // New or changed address - return with default geocoding state
-            return newAddress
         }
 
         // Update photo data
