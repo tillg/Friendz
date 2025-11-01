@@ -154,13 +154,15 @@ class GeocodingManager {
 
             do {
                 // Perform geocoding
-                let coordinates = try await service.geocode(address: address)
+                let result = try await service.geocode(address: address)
 
-                // Update the friend's address with coordinates
+                // Update the friend's address with coordinates AND metadata
                 item.friend.updateCoordinates(
                     at: item.addressIndex,
-                    latitude: coordinates.latitude,
-                    longitude: coordinates.longitude
+                    latitude: result.latitude,
+                    longitude: result.longitude,
+                    addressHash: result.addressHash,
+                    geocodedDate: result.geocodedDate
                 )
 
                 // Save changes
@@ -169,7 +171,7 @@ class GeocodingManager {
                 successCount += 1
 
                 print("✅ SUCCESS: \(item.friend.firstName) \(item.friend.lastName)")
-                print("   Coordinates: \(coordinates.latitude), \(coordinates.longitude)")
+                print("   Coordinates: \(result.latitude), \(result.longitude)")
                 print("   Queue: \(queue.count) remaining | Success: \(successCount) | Failed: \(failedCount)")
 
                 // Update activity status

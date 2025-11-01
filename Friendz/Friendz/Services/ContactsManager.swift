@@ -2,7 +2,7 @@
 //  ContactsManager.swift
 //  Friendz
 //
-//  Created by Claude Code on 28.10.25.
+//  Created by Till on 28.10.25.
 //
 
 import Foundation
@@ -64,15 +64,31 @@ class ContactsManager {
                 activityStatusManager?.updateContactSync(.error(message: "Contact access denied"))
                 return
             }
+            print("syncContacts: Got permission to access CNContacts")
 
             // Step 2: Fetch all contacts from iOS Contacts (30%)
             syncProgress = 0.3
             let cnContacts = try await fetchAllContacts()
+            print("syncContacts: Retrieved \(cnContacts.count) contacts from CNContacts")
+
 
             // Step 3: Fetch existing friends from SwiftData (40%)
             syncProgress = 0.4
             let descriptor = FetchDescriptor<Friend>()
             let existingFriends = try modelContext.fetch(descriptor)
+            
+            let friendsNeedingGeocoding = existingFriends.filter {
+                $0.addressesNeedingGeocoding().count > 0
+            }.count
+            let totalAddressesNeedingGeocoding = existingFriends
+                .map { $0.addressesNeedingGeocoding().count }
+                .reduce(0, +)
+            print(
+                """
+                syncContacts: Retrieved \(existingFriends.count) contacts from SwiftData/Friend
+                    Friends that need geoloc: \(friendsNeedingGeocoding)
+                    No of addresses that need geoloc: \(totalAddressesNeedingGeocoding)
+                """)
 
             // Step 4: Create a dictionary of existing friends by contactIdentifier (50%)
             syncProgress = 0.5
@@ -254,13 +270,6 @@ class ContactsManager {
         // Map postal addresses - PRESERVE geocoding data if address hasn't changed
         let existingAddresses = friend.postalAddresses
 
-        // Debug: log existing addresses
-        if !existingAddresses.isEmpty {
-            print("🔍 Friend '\(friend.firstName) \(friend.lastName)' has \(existingAddresses.count) existing address(es)")
-            for (idx, addr) in existingAddresses.enumerated() {
-                print("   [\(idx)] \(addr.street), \(addr.city) - lat:\(addr.latitude?.description ?? "nil"), lon:\(addr.longitude?.description ?? "nil"), needsGeocoding:\(addr.needsGeocoding)")
-            }
-        }
 
         friend.postalAddresses = contact.postalAddresses.map { address in
             let postalAddress = address.value

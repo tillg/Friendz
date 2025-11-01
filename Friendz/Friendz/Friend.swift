@@ -7,6 +7,7 @@
 
 import Foundation
 import SwiftData
+import CryptoKit
 
 /// Supporting struct for storing labeled values (phone numbers, emails)
 struct LabeledValue: Codable, Hashable {
@@ -15,7 +16,7 @@ struct LabeledValue: Codable, Hashable {
 }
 
 /// Supporting struct for storing labeled postal addresses
-struct LabeledPostalAddress: Codable, Hashable {
+struct LabeledPostalAddress: Codable, Hashable, Sendable {
     let label: String  // e.g., "Work", "Home"
     let street: String
     let city: String
@@ -26,11 +27,41 @@ struct LabeledPostalAddress: Codable, Hashable {
     // Geocoding fields
     var latitude: Double?
     var longitude: Double?
-    var needsGeocoding: Bool = true
+    var geocodedAddressHash: String?  // Hash of the address that was geocoded
+    var geocodedDate: Date?           // When geocoding was performed
 
-    /// Computed property for convenience
+    /// Hash of the current address (for validation)
+    /// Uses SHA256 for stable, deterministic hashing across app launches
+    var addressHash: String {
+        let components = [street, city, state, postalCode, country]
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
+            .joined(separator: "|")
+
+        // Use SHA256 for stable hashing (same input always produces same output)
+        guard let data = components.data(using: .utf8) else {
+            return components // Fallback to raw string if encoding fails
+        }
+
+        let hash = SHA256.hash(data: data)
+        return hash.compactMap { String(format: "%02x", $0) }.joined()
+    }
+
+    /// Computed property: Does this address have valid coordinates?
     var hasValidCoordinates: Bool {
-        latitude != nil && longitude != nil
+        guard latitude != nil,
+              longitude != nil,
+              let hash = geocodedAddressHash else {
+            return false
+        }
+
+        // Coordinates are valid if the hash matches
+        return hash == addressHash
+    }
+
+    /// Computed property: Does this address need geocoding?
+    var needsGeocoding: Bool {
+        // Needs geocoding if we don't have valid coordinates
+        return !hasValidCoordinates
     }
 
     /// Creates a new address, optionally preserving geocoding data from an existing address
@@ -61,14 +92,15 @@ struct LabeledPostalAddress: Codable, Hashable {
            existing.state == state,
            existing.postalCode == postalCode,
            existing.country == country {
-            // Address unchanged - preserve geocoding metadata
+            // Address unchanged - preserve ALL geocoding metadata
             newAddress.latitude = existing.latitude
             newAddress.longitude = existing.longitude
-            newAddress.needsGeocoding = existing.needsGeocoding
+            newAddress.geocodedAddressHash = existing.geocodedAddressHash
+            newAddress.geocodedDate = existing.geocodedDate
 
             // Debug logging
             if let lat = existing.latitude, let lon = existing.longitude {
-                print("✅ PRESERVED geocoding: \(street), \(city) → (\(lat), \(lon)), needsGeocoding=\(existing.needsGeocoding)")
+                print("✅ PRESERVED geocoding: \(street), \(city) → (\(lat), \(lon)), needsGeocoding=\(newAddress.needsGeocoding)")
             }
         } else if let existing = existing {
             // Debug: address changed
@@ -76,7 +108,7 @@ struct LabeledPostalAddress: Codable, Hashable {
             print("   Old: \(existing.street), \(existing.city), \(existing.state), \(existing.postalCode), \(existing.country)")
             print("   New: \(street), \(city), \(state), \(postalCode), \(country)")
         }
-        // Otherwise, needsGeocoding stays true (default)
+        // Otherwise, geocoding metadata stays nil (needsGeocoding computes to true)
 
         return newAddress
     }
@@ -178,23 +210,34 @@ class Friend: Comparable {
 
     // MARK: - Geocoding Helper Methods
 
-    /// Returns addresses that need geocoding
+    /// Returns addresses that need geocoding (computed based on hash validation)
     func addressesNeedingGeocoding() -> [(index: Int, address: LabeledPostalAddress)] {
         postalAddresses.enumerated().filter { $0.element.needsGeocoding }.map { ($0.offset, $0.element) }
     }
 
-    /// Updates coordinates for an address and marks as geocoded
-    func updateCoordinates(at index: Int, latitude: Double, longitude: Double) {
+    /// Updates coordinates for an address with hash validation metadata
+    func updateCoordinates(
+        at index: Int,
+        latitude: Double,
+        longitude: Double,
+        addressHash: String,
+        geocodedDate: Date
+    ) {
         guard index < postalAddresses.count else { return }
         postalAddresses[index].latitude = latitude
         postalAddresses[index].longitude = longitude
-        postalAddresses[index].needsGeocoding = false
+        postalAddresses[index].geocodedAddressHash = addressHash
+        postalAddresses[index].geocodedDate = geocodedDate
     }
 
-    /// Marks an address as needing geocoding (e.g., after modification or failure)
-    func markNeedsGeocoding(at index: Int) {
+    /// Invalidates geocoding for an address (e.g., after geocoding failure)
+    /// This clears coordinates and metadata, causing needsGeocoding to return true
+    func invalidateGeocoding(at index: Int) {
         guard index < postalAddresses.count else { return }
-        postalAddresses[index].needsGeocoding = true
+        postalAddresses[index].latitude = nil
+        postalAddresses[index].longitude = nil
+        postalAddresses[index].geocodedAddressHash = nil
+        postalAddresses[index].geocodedDate = nil
     }
 
     // MARK: - Comparable Conformance

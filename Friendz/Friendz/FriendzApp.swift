@@ -27,10 +27,10 @@ struct FriendzApp: App {
                 print("Model container initialized with CloudKit sync")
 
                 // Wire up activity status manager to contacts manager
-                contactsManager.activityStatusManager = activityStatusManager
+                    contactsManager.activityStatusManager = activityStatusManager
             case .failure(let error):
-                print("Failed to initialize model container: \(error)")
-            }
+                fatalError("Failed to initialize model container: \(error)")
+                }
         }
-    }
+            }
 }

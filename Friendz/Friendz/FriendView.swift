@@ -367,17 +367,22 @@ struct ContactViewerSheet: UIViewControllerRepresentable {
                     LabeledValue(label: "work", value: "ewilson@acme.com")
                 ],
                 postalAddresses: [
-                    LabeledPostalAddress(
-                        label: "home",
-                        street: "123 Main Street",
-                        city: "San Francisco",
-                        state: "CA",
-                        postalCode: "94102",
-                        country: "USA",
-                        latitude: 37.7749,
-                        longitude: -122.4194,
-                        needsGeocoding: false
-                    ),
+                    {
+                        let addr = LabeledPostalAddress(
+                            label: "home",
+                            street: "123 Main Street",
+                            city: "San Francisco",
+                            state: "CA",
+                            postalCode: "94102",
+                            country: "USA"
+                        )
+                        var validAddr = addr
+                        validAddr.latitude = 37.7749
+                        validAddr.longitude = -122.4194
+                        validAddr.geocodedAddressHash = addr.addressHash
+                        validAddr.geocodedDate = Date()
+                        return validAddr
+                    }(),
                     LabeledPostalAddress(
                         label: "work",
                         street: "456 Market St",

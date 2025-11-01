@@ -284,17 +284,22 @@ private enum GeocodingDisplayStatus {
         FriendListView(friend: {
             let friend = Friend.examples[2]
             friend.postalAddresses = [
-                LabeledPostalAddress(
-                    label: "home",
-                    street: "456 Oak Ave",
-                    city: "New York",
-                    state: "NY",
-                    postalCode: "10001",
-                    country: "USA",
-                    latitude: 40.7128,
-                    longitude: -74.0060,
-                    needsGeocoding: false
-                ),
+                {
+                    let addr = LabeledPostalAddress(
+                        label: "home",
+                        street: "456 Oak Ave",
+                        city: "New York",
+                        state: "NY",
+                        postalCode: "10001",
+                        country: "USA"
+                    )
+                    var validAddr = addr
+                    validAddr.latitude = 40.7128
+                    validAddr.longitude = -74.0060
+                    validAddr.geocodedAddressHash = addr.addressHash
+                    validAddr.geocodedDate = Date()
+                    return validAddr
+                }(),
                 LabeledPostalAddress(
                     label: "work",
                     street: "789 Broadway",
@@ -310,19 +315,20 @@ private enum GeocodingDisplayStatus {
         // Sample friend with all addresses geocoded
         FriendListView(friend: {
             let friend = Friend.examples[3]
-            friend.postalAddresses = [
-                LabeledPostalAddress(
-                    label: "home",
-                    street: "1 Infinite Loop",
-                    city: "Cupertino",
-                    state: "CA",
-                    postalCode: "95014",
-                    country: "USA",
-                    latitude: 37.3318,
-                    longitude: -122.0312,
-                    needsGeocoding: false
-                )
-            ]
+            let addr = LabeledPostalAddress(
+                label: "home",
+                street: "1 Infinite Loop",
+                city: "Cupertino",
+                state: "CA",
+                postalCode: "95014",
+                country: "USA"
+            )
+            var validAddr = addr
+            validAddr.latitude = 37.3318
+            validAddr.longitude = -122.0312
+            validAddr.geocodedAddressHash = addr.addressHash
+            validAddr.geocodedDate = Date()
+            friend.postalAddresses = [validAddr]
             return friend
         }())
     }

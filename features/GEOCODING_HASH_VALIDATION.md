@@ -75,13 +75,10 @@ struct LabeledPostalAddress: Codable, Hashable {
 
     /// Hash of the current address (for validation)
     var addressHash: String {
-        // Create a canonical string representation of the address
         let components = [street, city, state, postalCode, country]
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
             .joined(separator: "|")
-
-        // Return SHA256 hash (or simple hash for performance)
-        return components.sha256Hash  // Or use .hashValue.description for simplicity
+        return String(components.hashValue)
     }
 
     /// Computed property: Does this address have valid coordinates?
@@ -103,41 +100,6 @@ struct LabeledPostalAddress: Codable, Hashable {
     }
 }
 ```
-
-### Hashing Strategy
-
-**Option A: Simple String Hash (Recommended for MVP)**
-```swift
-var addressHash: String {
-    let components = [street, city, state, postalCode, country]
-        .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
-        .joined(separator: "|")
-    return String(components.hashValue)
-}
-```
-
-**Pros**: Fast, simple, no external dependencies
-**Cons**: Hash collisions possible (but extremely rare for this use case)
-
-**Option B: SHA256 (More Robust)**
-```swift
-import CryptoKit
-
-var addressHash: String {
-    let components = [street, city, state, postalCode, country]
-        .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
-        .joined(separator: "|")
-
-    let data = Data(components.utf8)
-    let hash = SHA256.hash(data: data)
-    return hash.compactMap { String(format: "%02x", $0) }.joined()
-}
-```
-
-**Pros**: Cryptographically secure, no collisions
-**Cons**: Slightly slower, longer hash strings (64 chars)
-
-**Recommendation**: Start with **Option A** (simple hash) for performance. Upgrade to SHA256 only if hash collisions become an issue (they won't).
 
 ### Geocoding Service Changes
 
@@ -217,13 +179,6 @@ extension Friend {
         postalAddresses[index].geocodedAddressHash = addressHash
         postalAddresses[index].geocodedDate = geocodedDate
     }
-
-    /// Optional: Manually invalidate geocoding (marks coordinates as stale)
-    func invalidateGeocoding(at index: Int) {
-        guard index < postalAddresses.count else { return }
-        // Simply clear the hash - coordinates remain but will be considered invalid
-        postalAddresses[index].geocodedAddressHash = nil
-    }
 }
 ```
 
@@ -300,20 +255,6 @@ After migration to new model:
 
 ## Testing Strategy
 
-### Unit Tests
-
-1. **Hash Consistency**: Same address always produces same hash
-2. **Hash Sensitivity**: Different addresses produce different hashes
-3. **Computed Property Logic**: `needsGeocoding` returns correct values
-4. **Validation Logic**: `hasValidCoordinates` works correctly
-
-### Integration Tests
-
-1. **Geocoding Flow**: Verify metadata is stored correctly
-2. **Contact Sync**: Verify metadata is preserved
-3. **Address Change**: Verify coordinates invalidated when address changes
-4. **CloudKit Sync**: Verify metadata syncs across devices
-
 ### Manual Testing Scenarios
 
 1. **Fresh Install**: New device geocodes addresses correctly
@@ -381,86 +322,3 @@ After migration to new model:
 
 **Total Estimated Time**: ~2.5 hours
 
-## Benefits Summary
-
-### Before (Current System)
-❌ CloudKit sync causes unnecessary re-geocoding
-❌ Contact sync can overwrite valid coordinates
-❌ No way to validate if coordinates match address
-❌ Manual flag management prone to errors
-❌ No debugging information
-
-### After (Hash Validation System)
-✅ CloudKit sync works perfectly - coordinates validated locally
-✅ Contact sync preserves valid geocoding data
-✅ Automatic validation - coordinates always match address
-✅ Computed property - no manual flag management
-✅ Timestamp for debugging and cache invalidation
-✅ Self-healing - address changes auto-trigger re-geocoding
-
-## Future Enhancements
-
-### Optional: Geocoding Cache Expiration
-Could add logic to re-geocode addresses after a certain time period (e.g., 1 year) in case address data improves:
-
-```swift
-var needsGeocoding: Bool {
-    guard hasValidCoordinates,
-          let geocodedDate = geocodedDate else {
-        return true
-    }
-
-    // Optional: Re-geocode after 1 year
-    let oneYearAgo = Date().addingTimeInterval(-365 * 24 * 60 * 60)
-    if geocodedDate < oneYearAgo {
-        return true
-    }
-
-    return false
-}
-```
-
-### Optional: User-Facing Geocoding Status
-Could expose geocoding metadata in UI:
-- "Located on Dec 15, 2024"
-- "Address changed, location pending"
-- Manual "Refresh Location" button
-
----
-
-## Questions & Decisions
-
-### Q: What hash algorithm should we use?
-**A**: Start with Swift's built-in `hashValue` (simple, fast). Upgrade to SHA256 only if collisions occur (they won't).
-
-### Q: Should we re-geocode old data on migration?
-**A**: Yes - this is the safest approach and ensures all coordinates are validated. One-time cost.
-
-### Q: What if two addresses hash to the same value?
-**A**: With proper hashing (even simple hash), probability is essentially zero. If it happens, worst case: unnecessary re-geocoding.
-
-### Q: Should we normalize addresses before hashing?
-**A**: Yes - trim whitespace and lowercase to handle minor formatting differences.
-
-### Q: Should geocodedDate be used for anything?
-**A**: Initially just for debugging. Could add cache expiration later (see Future Enhancements).
-
----
-
-## Success Criteria
-
-1. ✅ No unnecessary re-geocoding across CloudKit syncs
-2. ✅ Address changes automatically trigger re-geocoding
-3. ✅ Contact sync preserves valid geocoding data
-4. ✅ All coordinates can be validated as matching their address
-5. ✅ No manual flag management needed
-6. ✅ Existing data migrates cleanly
-
----
-
-## References
-
-- Original geocoding feature spec: `/features/GET_COORDINATES.md`
-- Friend model: `Friendz/Friendz/Friend.swift`
-- GeocodingManager: `Friendz/Friendz/Services/GeocodingManager.swift`
-- ContactsManager: `Friendz/Friendz/Services/ContactsManager.swift`

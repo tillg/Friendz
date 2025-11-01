@@ -93,25 +93,29 @@ struct GeocodingStatusIcon: View {
                 city: "San Francisco",
                 state: "CA",
                 postalCode: "94102",
-                country: "USA",
-                needsGeocoding: true
+                country: "USA"
             ))
             Text("Pending geocoding")
         }
 
         // Success state
         HStack {
-            GeocodingStatusIcon(address: LabeledPostalAddress(
-                label: "work",
-                street: "456 Market St",
-                city: "San Francisco",
-                state: "CA",
-                postalCode: "94105",
-                country: "USA",
-                latitude: 37.7749,
-                longitude: -122.4194,
-                needsGeocoding: false
-            ))
+            GeocodingStatusIcon(address: {
+                let address = LabeledPostalAddress(
+                    label: "work",
+                    street: "456 Market St",
+                    city: "San Francisco",
+                    state: "CA",
+                    postalCode: "94105",
+                    country: "USA"
+                )
+                var validAddress = address
+                validAddress.latitude = 37.7749
+                validAddress.longitude = -122.4194
+                validAddress.geocodedAddressHash = address.addressHash
+                validAddress.geocodedDate = Date()
+                return validAddress
+            }())
             Text("Successfully geocoded")
         }
 
@@ -123,8 +127,7 @@ struct GeocodingStatusIcon: View {
                 city: "Nowhere",
                 state: "XX",
                 postalCode: "00000",
-                country: "Invalid",
-                needsGeocoding: false
+                country: "Invalid"
             ))
             Text("Geocoding failed")
         }
