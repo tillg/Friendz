@@ -33,7 +33,7 @@ struct FriendzLogoView: View {
                 .foregroundStyle(Color(white: 0.3))
                 .offset(x: personOffsetX, y: personOffsetY)
         }
-        .frame(width: size, height: size)
+        .frame(width: size * 1.5, height: size)
     }
 }
 

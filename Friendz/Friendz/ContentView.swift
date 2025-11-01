@@ -64,11 +64,8 @@ struct ContentView: View {
     // MARK: - Friends List View
 
     private var friendsListView: some View {
-        VStack(spacing: 0) {
-            // Activity Status Bar
-            ActivityStatusBar()
-
-            // Friends list with sections
+        ZStack(alignment: .top) {
+            // Friends list with sections - extends under the header
             List {
                 ForEach(groupedFriends, id: \.0) { section in
                     Section {
@@ -85,17 +82,18 @@ struct ContentView: View {
                 }
             }
             .listStyle(.plain)
-            .scrollIndicators(.hidden)
+
+            VStack() {
+                ActivityStatusBar()
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .safeAreaInset(edge: .top, spacing: 0) {
-            FriendzHeaderView()
-        }
-        .navigationTitle("")
+        .navigationTitle("Friendz")
         .toolbar {
             // Map button
             ToolbarItem(placement: .primaryAction) {
                 NavigationLink(destination: MapView()) {
-                    Label("Map", systemImage: "map")
+                    Image(systemName: "map")
                 }
             }
         }

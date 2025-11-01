@@ -96,7 +96,7 @@ private struct ContactSyncStatusView: View {
     }
 
     private var showProgress: Bool {
-        if case .syncing(let progress) = status, progress != nil {
+        if case .syncing = status {
             return true
         }
         return false
