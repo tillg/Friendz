@@ -85,6 +85,7 @@ struct SyncSettingsView: View {
         .navigationTitle("Sync Settings")
         .navigationBarTitleDisplayMode(.inline)
         .interactiveDismissDisabled(isSyncing)
+        .navigationBarBackButtonHidden(isSyncing)
         .alert("Sync Error", isPresented: $showError) {
             if errorMessage.contains("authorized") || errorMessage.contains("permission") {
                 Button("Open Settings") {
