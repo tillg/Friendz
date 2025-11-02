@@ -116,27 +116,27 @@ struct LabeledPostalAddress: Codable, Hashable, Sendable {
 
 @Model
 class Friend: Comparable {
-    var id: UUID
-    var firstName: String
-    var lastName: String
+    var id: UUID = UUID() // Default value for CloudKit
+    var firstName: String = "" // Default value for CloudKit
+    var lastName: String = "" // Default value for CloudKit
     var middleName: String?
     var organizationName: String?
 
     // Contact type
-    var isCompany: Bool
+    var isCompany: Bool = false // Default value for CloudKit
 
     // Contact details
-    var phoneNumbers: [LabeledValue]
-    var emailAddresses: [LabeledValue]
-    var postalAddresses: [LabeledPostalAddress]
+    var phoneNumbers: [LabeledValue] = [] // Default value for CloudKit
+    var emailAddresses: [LabeledValue] = [] // Default value for CloudKit
+    var postalAddresses: [LabeledPostalAddress] = [] // Default value for CloudKit
 
     // Contact photo (stored as original from Contacts)
     var photoData: Data?
 
     // Contact tracking
-    var contactIdentifier: String
+    var contactIdentifier: String = "" // Default value for CloudKit
     var lastModifiedDate: Date?
-    var isDeleted: Bool
+    var isDeleted: Bool = false // Default value for CloudKit
 
     init(
         id: UUID = UUID(),

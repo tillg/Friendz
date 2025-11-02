@@ -13,24 +13,17 @@ struct FriendzApp: App {
     @State private var contactsManager = ContactsManager()
     @State private var activityStatusManager = ActivityStatusManager()
 
+    // Create ModelContainer with CloudKit configuration
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environment(contactsManager)
                 .environment(activityStatusManager)
-        }
-        .modelContainer(for: Friend.self) { result in
-            switch result {
-            case .success:
-                // Configure CloudKit sync for Friend model
-                // CloudKit will automatically sync Friend data across devices
-                print("Model container initialized with CloudKit sync")
-
-                // Wire up activity status manager to contacts manager
+                .onAppear {
+                    // Wire up activity status manager to contacts manager
                     contactsManager.activityStatusManager = activityStatusManager
-            case .failure(let error):
-                fatalError("Failed to initialize model container: \(error)")
                 }
         }
-            }
+        .modelContainer(for: Friend.self)
+    }
 }
