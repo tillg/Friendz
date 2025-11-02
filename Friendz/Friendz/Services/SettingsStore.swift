@@ -9,6 +9,7 @@ import Foundation
 import SwiftUI
 import SwiftData
 
+@MainActor
 @Observable
 class SettingsStore {
     private let defaults = UserDefaults.standard
