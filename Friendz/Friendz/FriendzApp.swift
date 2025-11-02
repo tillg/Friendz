@@ -12,6 +12,7 @@ import SwiftUI
 struct FriendzApp: App {
     @State private var contactsManager = ContactsManager()
     @State private var activityStatusManager = ActivityStatusManager()
+    @State private var settingsStore = SettingsStore()
 
     // Create ModelContainer with CloudKit configuration
     var body: some Scene {
@@ -19,6 +20,7 @@ struct FriendzApp: App {
             ContentView()
                 .environment(contactsManager)
                 .environment(activityStatusManager)
+                .environment(settingsStore)
                 .onAppear {
                     // Wire up activity status manager to contacts manager
                     contactsManager.activityStatusManager = activityStatusManager

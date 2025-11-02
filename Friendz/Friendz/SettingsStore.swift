@@ -1,0 +1,58 @@
+//
+//  SettingsStore.swift
+//  Friendz
+//
+//  Created by Claude Code
+//
+
+import Foundation
+import SwiftUI
+
+@Observable
+class SettingsStore {
+    private let defaults = UserDefaults.standard
+
+    private let lastSyncDateKey = "lastSyncDate"
+    private let lastSyncDurationKey = "lastSyncDuration"
+    private let lastSyncContactCountKey = "lastSyncContactCount"
+
+    var lastSyncDateValue: Date? {
+        get {
+            if let timestamp = defaults.object(forKey: lastSyncDateKey) as? Double {
+                return Date(timeIntervalSince1970: timestamp)
+            }
+            return nil
+        }
+        set {
+            if let date = newValue {
+                defaults.set(date.timeIntervalSince1970, forKey: lastSyncDateKey)
+            } else {
+                defaults.removeObject(forKey: lastSyncDateKey)
+            }
+        }
+    }
+
+    var lastSyncDuration: TimeInterval {
+        get {
+            defaults.double(forKey: lastSyncDurationKey)
+        }
+        set {
+            defaults.set(newValue, forKey: lastSyncDurationKey)
+        }
+    }
+
+    var lastSyncContactCount: Int {
+        get {
+            defaults.integer(forKey: lastSyncContactCountKey)
+        }
+        set {
+            defaults.set(newValue, forKey: lastSyncContactCountKey)
+        }
+    }
+
+    func recordSync(duration: TimeInterval, contactCount: Int) {
+        lastSyncDateValue = Date()
+        lastSyncDuration = duration
+        lastSyncContactCount = contactCount
+    }
+}

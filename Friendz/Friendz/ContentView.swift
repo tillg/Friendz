@@ -12,12 +12,14 @@ struct ContentView: View {
     @Environment(\.modelContext) var modelContext
     @Environment(ContactsManager.self) var contactsManager
     @Environment(ActivityStatusManager.self) var activityStatusManager
+    @Environment(SettingsStore.self) var settingsStore
 
     // Query friends, filtering out deleted ones (no sort in query, we'll sort manually)
     @Query(filter: #Predicate<Friend> { !$0.isDeleted })
     var friends: [Friend]
 
     @State private var showingErrorAlert = false
+    @State private var showingSettings = false
     @State private var geocodingManager: GeocodingManager?
 
     var body: some View {
@@ -36,10 +38,21 @@ struct ContentView: View {
                 geocodingManager = manager
             }
 
-            // Sync contacts when view appears
-            await contactsManager.syncContacts(modelContext: modelContext)
+            // Sync contacts only on first launch (when lastSyncDate is nil)
+            if settingsStore.lastSyncDateValue == nil {
+                let startTime = Date()
+                await contactsManager.syncContacts(modelContext: modelContext)
 
-            // After syncing, scan for addresses that need geocoding
+                // Record sync stats if successful
+                if contactsManager.errorMessage == nil {
+                    let duration = Date().timeIntervalSince(startTime)
+                    let descriptor = FetchDescriptor<Friend>(predicate: #Predicate { !$0.isDeleted })
+                    let contactCount = (try? modelContext.fetchCount(descriptor)) ?? 0
+                    settingsStore.recordSync(duration: duration, contactCount: contactCount)
+                }
+            }
+
+            // After syncing (or skipping), scan for addresses that need geocoding
             geocodingManager?.scanAndEnqueueFriends()
         }
         .alert("Sync Error", isPresented: $showingErrorAlert) {
@@ -90,12 +103,24 @@ struct ContentView: View {
         }
         .navigationTitle("Friendz")
         .toolbar {
+            // Settings button
+            ToolbarItem(placement: .topBarLeading) {
+                Button {
+                    showingSettings = true
+                } label: {
+                    Image(systemName: "gearshape")
+                }
+            }
+
             // Map button
             ToolbarItem(placement: .primaryAction) {
                 NavigationLink(destination: MapView()) {
                     Image(systemName: "map")
                 }
             }
+        }
+        .sheet(isPresented: $showingSettings) {
+            SettingsView()
         }
     }
 
