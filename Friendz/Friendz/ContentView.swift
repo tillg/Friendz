@@ -39,7 +39,7 @@ struct ContentView: View {
             }
 
             // Sync contacts only on first launch (when lastSyncDate is nil)
-            if settingsStore.lastSyncDateValue == nil {
+            if settingsStore.lastSyncDate == nil {
                 let startTime = Date()
                 await contactsManager.syncContacts(modelContext: modelContext)
 

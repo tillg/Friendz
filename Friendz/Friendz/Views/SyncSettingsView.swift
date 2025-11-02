@@ -16,7 +16,6 @@ struct SyncSettingsView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var isSyncing = false
-    @State private var syncStartTime: Date?
     @State private var showError = false
     @State private var errorMessage = ""
 
@@ -56,7 +55,7 @@ struct SyncSettingsView: View {
             }
 
             Section {
-                if let lastSync = settingsStore.lastSyncDateValue {
+                if let lastSync = settingsStore.lastSyncDate {
                     LabeledContent("Last sync") {
                         Text(lastSync.relativeTimeString())
                             .foregroundStyle(.secondary)
@@ -104,14 +103,13 @@ struct SyncSettingsView: View {
 
     private func startSync() {
         isSyncing = true
-        syncStartTime = Date()
+        let syncStartTime = Date()
 
         Task {
             await contactsManager.syncContacts(modelContext: modelContext)
 
             if let error = contactsManager.errorMessage {
                 isSyncing = false
-                syncStartTime = nil
                 errorMessage = error
                 showError = true
 
@@ -120,16 +118,13 @@ struct SyncSettingsView: View {
                 generator.notificationOccurred(.error)
             } else {
                 // Sync successful - record stats
-                if let startTime = syncStartTime {
-                    settingsStore.recordSyncCompletion(startTime: startTime, modelContext: modelContext)
-                }
+                settingsStore.recordSyncCompletion(startTime: syncStartTime, modelContext: modelContext)
 
                 // Haptic feedback on success
                 let generator = UINotificationFeedbackGenerator()
                 generator.notificationOccurred(.success)
 
                 isSyncing = false
-                syncStartTime = nil
             }
         }
     }
@@ -144,14 +139,6 @@ struct SyncSettingsView: View {
             let seconds = Int(duration.truncatingRemainder(dividingBy: 60))
             return "\(minutes)m \(seconds)s"
         }
-    }
-}
-
-extension Date {
-    func relativeTimeString() -> String {
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .full
-        return formatter.localizedString(for: self, relativeTo: Date())
     }
 }
 

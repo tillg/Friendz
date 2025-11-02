@@ -18,7 +18,7 @@ class SettingsStore {
     private let lastSyncDurationKey = "lastSyncDuration"
     private let lastSyncContactCountKey = "lastSyncContactCount"
 
-    var lastSyncDateValue: Date? {
+    var lastSyncDate: Date? {
         get {
             if let timestamp = defaults.object(forKey: lastSyncDateKey) as? Double {
                 return Date(timeIntervalSince1970: timestamp)
@@ -53,7 +53,7 @@ class SettingsStore {
     }
 
     func recordSync(duration: TimeInterval, contactCount: Int) {
-        lastSyncDateValue = Date()
+        lastSyncDate = Date()
         lastSyncDuration = duration
         lastSyncContactCount = contactCount
     }
