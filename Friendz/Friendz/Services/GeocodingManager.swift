@@ -42,8 +42,14 @@ class GeocodingManager {
         }
     }
 
-    // Rate limiting: 1 request per second
-    private let requestDelay: Duration = .seconds(1)
+    // Rate limiting with exponential backoff
+    private let minRequestDelay: Duration = .seconds(60)    // Apple's documented minimum
+    private let maxRequestDelay: Duration = .seconds(300)   // 5 minutes max
+    private var currentDelay: Duration = .seconds(60)
+
+    // Rate limit detection
+    private var consecutiveFailures: Int = 0
+    private let failureThreshold: Int = 3  // Assume rate limited after 3 consecutive failures
 
     // MARK: - Initialization
 
@@ -89,6 +95,8 @@ class GeocodingManager {
     /// Retries all failed geocoding attempts
     func retryFailed() {
         failedCount = 0
+        consecutiveFailures = 0
+        currentDelay = minRequestDelay  // Reset to minimum delay
         scanAndEnqueueFriends()
     }
 
@@ -141,16 +149,12 @@ class GeocodingManager {
             let addressString = [
                 address.street,
                 address.city,
-                address.state,
-                address.postalCode,
                 address.country
             ]
             .filter { !$0.isEmpty }
             .joined(separator: ", ")
 
-            print("🗺️ Geocoding: \(item.friend.firstName) \(item.friend.lastName)")
-            print("   Address: \(addressString)")
-            print("   Queue: \(queue.count) remaining | Success: \(successCount) | Failed: \(failedCount)")
+            let friendName = "\(item.friend.firstName) \(item.friend.lastName)".trimmingCharacters(in: .whitespaces)
 
             do {
                 // Perform geocoding
@@ -169,28 +173,45 @@ class GeocodingManager {
                 try modelContext.save()
 
                 successCount += 1
+                consecutiveFailures = 0  // Reset on success
 
-                print("✅ SUCCESS: \(item.friend.firstName) \(item.friend.lastName)")
-                print("   Coordinates: \(result.latitude), \(result.longitude)")
-                print("   Queue: \(queue.count) remaining | Success: \(successCount) | Failed: \(failedCount)")
+                // Success may indicate we can reduce delay (but stay above minimum)
+                if currentDelay > minRequestDelay {
+                    currentDelay = max(minRequestDelay, currentDelay * 0.8)
+                }
+
+                // Single line log: name/address → result
+                print("✅ \(friendName) (\(addressString)) → \(String(format: "%.4f", result.latitude)), \(String(format: "%.4f", result.longitude)) | Queue: \(queue.count) | Success: \(successCount) | Failed: \(failedCount)")
 
                 // Update activity status
                 let processed = totalAddresses - queue.count
                 activityStatusManager?.updateGeocoding(.locating(current: processed, total: totalAddresses))
 
                 // Rate limiting: wait before next request
-                try? await Task.sleep(for: requestDelay)
+                try? await Task.sleep(for: currentDelay)
 
             } catch {
                 // Handle geocoding failure
                 failedCount += 1
+                consecutiveFailures += 1
 
-                // Decode the error for better logging
-                let errorDetails = decodeGeocodingError(error)
-                print("❌ FAILED: \(item.friend.firstName) \(item.friend.lastName)")
-                print("   Address: \(addressString)")
-                print("   Error: \(errorDetails)")
-                print("   Queue: \(queue.count) remaining | Success: \(successCount) | Failed: \(failedCount)")
+                let isRateLimitError = isLikelyRateLimitError(error)
+                let nsError = error as NSError
+                let errorCode = "\(nsError.domain):\(nsError.code)"
+
+                // Implement exponential backoff on consecutive failures
+                var delayInfo = ""
+                if consecutiveFailures >= failureThreshold || isRateLimitError {
+                    // Double the delay (exponential backoff), up to max
+                    let newDelay = min(currentDelay * 2, maxRequestDelay)
+                    if newDelay != currentDelay {
+                        currentDelay = newDelay
+                        delayInfo = " [BACKOFF: \(Int(currentDelay.components.seconds))s]"
+                    }
+                }
+
+                // Single line log: name/address → error
+                print("❌ \(friendName) (\(addressString)) → \(errorCode) | Consecutive: \(consecutiveFailures) | Queue: \(queue.count) | Success: \(successCount) | Failed: \(failedCount)\(delayInfo)")
 
                 // Keep needsGeocoding = true so it can be retried later
 
@@ -198,8 +219,8 @@ class GeocodingManager {
                 let processed = totalAddresses - queue.count
                 activityStatusManager?.updateGeocoding(.locating(current: processed, total: totalAddresses))
 
-                // Longer delay after failure to avoid hammering the service
-                try? await Task.sleep(for: .seconds(2))
+                // Use current delay (which may have been increased)
+                try? await Task.sleep(for: currentDelay)
             }
         }
 
@@ -221,9 +242,45 @@ class GeocodingManager {
         }
     }
 
-    /// Decodes CLError codes into human-readable messages
+    /// Checks if an error is likely due to rate limiting
+    private func isLikelyRateLimitError(_ error: Error) -> Bool {
+        let nsError = error as NSError
+
+        // MKError.placemarkNotFound (code 4) often indicates rate limiting
+        // when it happens repeatedly for different addresses
+        if nsError.domain == "MKErrorDomain" && nsError.code == 4 {
+            return true
+        }
+
+        // CLError.network (code 2) can also indicate rate limiting
+        if nsError.domain == "kCLErrorDomain" && nsError.code == 2 {
+            return true
+        }
+
+        return false
+    }
+
+    /// Decodes CLError and MKError codes into human-readable messages
     private func decodeGeocodingError(_ error: Error) -> String {
         let nsError = error as NSError
+
+        // Check if it's a MapKit error
+        if nsError.domain == "MKErrorDomain" {
+            switch nsError.code {
+            case 1:
+                return "MKError.unknown: Unknown error"
+            case 2:
+                return "MKError.serverFailure: Server failure"
+            case 3:
+                return "MKError.loadingThrottled: Loading throttled (rate limit)"
+            case 4:
+                return "MKError.placemarkNotFound: Placemark not found (may indicate rate limiting or invalid address)"
+            case 5:
+                return "MKError.directionsNotFound: Directions not found"
+            default:
+                return "MKError code \(nsError.code): \(error.localizedDescription)"
+            }
+        }
 
         // Check if it's a CoreLocation error
         if nsError.domain == "kCLErrorDomain" {
@@ -233,9 +290,9 @@ class GeocodingManager {
             case 1:
                 return "CLError.denied: User denied location access"
             case 2:
-                return "CLError.network: Network unavailable"
+                return "CLError.network: Network unavailable (may indicate rate limiting)"
             case 8:
-                return "CLError.geocodeFoundNoResult: No results found for this address (address may be invalid, incomplete, or not recognized)"
+                return "CLError.geocodeFoundNoResult: No results found for this address"
             case 9:
                 return "CLError.geocodeCanceled: Geocoding was cancelled"
             case 10:
