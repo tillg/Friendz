@@ -120,10 +120,9 @@ struct SyncSettingsView: View {
                 generator.notificationOccurred(.error)
             } else {
                 // Sync successful - record stats
-                let duration = Date().timeIntervalSince(syncStartTime ?? Date())
-                let descriptor = FetchDescriptor<Friend>(predicate: #Predicate { !$0.isDeleted })
-                let contactCount = (try? modelContext.fetchCount(descriptor)) ?? 0
-                settingsStore.recordSync(duration: duration, contactCount: contactCount)
+                if let startTime = syncStartTime {
+                    settingsStore.recordSyncCompletion(startTime: startTime, modelContext: modelContext)
+                }
 
                 // Haptic feedback on success
                 let generator = UINotificationFeedbackGenerator()

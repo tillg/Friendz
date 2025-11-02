@@ -45,10 +45,7 @@ struct ContentView: View {
 
                 // Record sync stats if successful
                 if contactsManager.errorMessage == nil {
-                    let duration = Date().timeIntervalSince(startTime)
-                    let descriptor = FetchDescriptor<Friend>(predicate: #Predicate { !$0.isDeleted })
-                    let contactCount = (try? modelContext.fetchCount(descriptor)) ?? 0
-                    settingsStore.recordSync(duration: duration, contactCount: contactCount)
+                    settingsStore.recordSyncCompletion(startTime: startTime, modelContext: modelContext)
                 }
             }
 

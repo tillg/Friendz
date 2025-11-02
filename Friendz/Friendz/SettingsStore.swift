@@ -7,6 +7,7 @@
 
 import Foundation
 import SwiftUI
+import SwiftData
 
 @Observable
 class SettingsStore {
@@ -54,5 +55,13 @@ class SettingsStore {
         lastSyncDateValue = Date()
         lastSyncDuration = duration
         lastSyncContactCount = contactCount
+    }
+
+    /// Record sync completion with automatic duration and contact count calculation
+    func recordSyncCompletion(startTime: Date, modelContext: ModelContext) {
+        let duration = Date().timeIntervalSince(startTime)
+        let descriptor = FetchDescriptor<Friend>(predicate: #Predicate { !$0.isDeleted })
+        let contactCount = (try? modelContext.fetchCount(descriptor)) ?? 0
+        recordSync(duration: duration, contactCount: contactCount)
     }
 }
